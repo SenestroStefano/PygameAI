@@ -1,4 +1,4 @@
-import pygame, sys, os
+import pygame, sys, os, re
 import global_var as Glob
 
 
@@ -6,19 +6,20 @@ def get_font(size):
     return pygame.font.Font("freesansbold.ttf", size)
 
 def inizializza():
-    global clock, player, sceltaG, Folder_walkO, Folder_walkVD, Folder_walkVU
+    global clock, player, sceltaG, Folder_walkO, Folder_walkVD, Folder_walkVU, Folder_angry
 
-    sceltaG = "Senex"
+    sceltaG = "Keeper"
 
     Folder_walkO = '../animation/'+sceltaG+'/WalkOrizontal'
     Folder_walkVD = '../animation/'+sceltaG+'/WalkVerticalD'
     Folder_walkVU = '../animation/'+sceltaG+'/WalkVerticalU'
+    Folder_angry = '../animation/Keeper/Angry'
 
     def riempi(percorso):
         FileNames = os.listdir(percorso)
 
         # Ordino i file e gli appendo ad una lista, in modo che le animazioni siano lineari e ordinate
-        FileNames.sort()
+        FileNames.sort(key=lambda f: int(re.sub('\D', '', f)))
         sorted(FileNames)
 
         for filename in FileNames:
@@ -31,12 +32,16 @@ def inizializza():
             if percorso == Folder_walkVU:
                 #print("Trovato Percorso WVU")
                 Glob.PlayerWalkingVU.append(filename)
-
-            #print("File name:"+filename+"\n\n")
+                
+            if percorso == Folder_angry:
+                Glob.MonsterAngry.append(filename)
 
     riempi(Folder_walkO)
     riempi(Folder_walkVD)
     riempi(Folder_walkVU)
+    riempi(Folder_angry)
+    
+    # print(Glob.MonsterAngry)
 
     Player_width, Player_height = pygame.image.load(Folder_walkVU+"/Walk0.png").convert().get_width()*Glob.MULT, pygame.image.load(Folder_walkVU+"/Walk0.png").convert().get_height()*Glob.MULT
 
@@ -96,6 +101,8 @@ class Player():
         self.Name_animationWVD = Folder_walkVD
         self.Name_animationWVU = Folder_walkVU
         self.Name_animationWO = Folder_walkO
+        
+        self.Name_animationAngry = Folder_angry
 
         #indicazione grandezza (statica)
         self.width = width
@@ -114,12 +121,21 @@ class Player():
 
         self.animationWVD = char_image[0]
         self.current_spriteWVD = 0
+        
+        self.animationANGRY = Glob.MonsterAngry
+        self.current_spriteAngry = 0
 
         #pulsanti cliccati si/no
         self.setLeftPress(False)
         self.setRightPress(False)
         self.setUpPress(False)
         self.setDownPress(False)
+        
+        self.setAngryMode(False)
+        self.flag_angry = False
+        
+        self.luce_image = pygame.image.load("../assets/luce.png").convert_alpha()
+        self.luce_image = pygame.transform.scale(self.luce_image, (self.width * 2, self.height * 2))
         
         # setta l'immagine di animazione attuale di walking
         self.image = self.animationWVD[0]
@@ -143,6 +159,9 @@ class Player():
 
     def setUpPress(self, u):
         self.__up_pressed = u
+        
+    def setAngryMode(self, a):
+        self.__angry_mode = a
 
     def setDownPress(self, d):
         self.__down_pressed = d
@@ -177,6 +196,9 @@ class Player():
 
     def getDownPress(self):
         return self.__down_pressed
+    
+    def getAngryMode(self):
+        return self.__angry_mode
 
     def getIsWalking(self):
         return self.__is_walking
@@ -184,7 +206,8 @@ class Player():
     # aggiorna a schermo l'immagine attuale del Player
     def character_update(self,var):
 
-        # Controlla se l'animazione è attiva
+        # Controlla se l'animazione è attiva            
+        
         if self.getIsWalking():
 
             self.current_spriteWO += 0.2 / Glob.Delta_Time # è un float perchè quando arriverà ad un int l'animazione cambiera quindi è come se fosse un delay
@@ -246,9 +269,26 @@ class Player():
         if (self.getDownPress() and not self.getUpPress()):
             self.setIsWalking(True)
             self.character_update(0) # richiamo la funzione di aggiorna l'animazione
+            
+        if self.getAngryMode():
+            self.current_spriteAngry += 0.15 / Glob.Delta_Time
         
-        self.character = pygame.transform.scale(self.character, (self.width, self.height)) # ingrandisco (scalo) l'immagine presa dalle cartelle
+            if self.current_spriteAngry >= len(Glob.MonsterAngry):
+                self.current_spriteAngry = 0
+                self.setAngryMode(False)
+                self.flag_angry = True
+                
+            self.image = self.animationANGRY[int(self.current_spriteAngry)]
+            self.character = pygame.image.load(
+                os.path.join(self.Name_animationAngry,self.image)) # carica l'immagine presa dalla cartella Walk
+
+        
+        self.character = pygame.transform.scale(self.character, (self.width / Glob.Player_proportion, self.height / Glob.Player_proportion)) # ingrandisco (scalo) l'immagine presa dalle cartelle
+        
         Glob.screen.blit(self.character, (self.x , self.y)) # indica che lo schermo fa nascere il giocatore
+        
+        if self.flag_angry:
+            Glob.screen.blit(self.luce_image, (self.x, self.y))
 
     # setta l'animazione della camminata a vera
     def animate(self):
@@ -299,6 +339,10 @@ def key_pressed(event,IsPressed):
             player.animate()
         else:
             player.finish()
+            
+    if event.key == pygame.K_p:
+        player.setAngryMode(True)
+        player.flag_angry = False
 
 def main():
     Inizia = True

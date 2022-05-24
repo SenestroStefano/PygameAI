@@ -5,7 +5,7 @@ TITLE = "Animazioni"
 # Valori di proporzione
 
 Delta_Time = 2 # Delta_Time (Congliabile 1/2)
-Player_proportion = 1 # Divisore della grandezza del giocatore
+Player_proportion = 0.5 # Divisore della grandezza del giocatore
 
 #FPS
 FPS = 60 * Delta_Time
@@ -30,6 +30,8 @@ Debug = False
 PlayerWalkingO = []
 PlayerWalkingVD = []
 PlayerWalkingVU = []
+
+MonsterAngry = []
 
 Background_Color = (12, 24, 36)
 

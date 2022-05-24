@@ -1,7 +1,7 @@
 """Smooth Movement in pygame"""
 
 #Imports
-import pygame, sys, random
+import pygame, sys, random, os, re
 import global_var as GLOB
 import giocatore
 
@@ -141,6 +141,11 @@ class Cam():
 
     def getPositionY(self):
         return self.y
+    
+    
+    def screen_shake(self):
+        intervallo = 5
+        self.y = self.y + random.randint(-intervallo, intervallo)
 
         
     def update(self, visibility):
@@ -214,7 +219,7 @@ class Mostro():
         self.width = wh[0]
         self.height = wh[1]
         self.default_height = self.height
-        self.vel = vel
+        self.vel = vel * GLOB.MULT / GLOB.Delta_Time
         self.x, self.y = GLOB.screen.get_rect().center
         self.line_vector = pygame.math.Vector2(1, 0)
         self.angle = 90
@@ -233,13 +238,12 @@ class Mostro():
 
         self.altezza_rect = 20 * GLOB.MULT
 
-        self.__setMonster(False)
-
         self.aggr = False
 
         self.direzione = ""
 
         self.flag_CanAttack = False
+        self.flag_CanStartAttack = False
 
         self.valore_distanza = 220 * GLOB.MULT
         self.setHitbox()
@@ -249,7 +253,24 @@ class Mostro():
         self.__up_pressed = False
         self.__down_pressed = False
 
-        self.superfice = pygame.Surface((GLOB.screen_width, GLOB.screen_height))
+        self.superfice = pygame.Surface((GLOB.screen_width, GLOB.screen_height))        
+        
+        self.current_spriteWO = 0
+        self.current_spriteWVU = 0
+        self.current_spriteWVD = 0
+        self.current_spriteAngry = 0
+        
+        self.Name_animationWVD = Folder_walkVD
+        self.Name_animationWVU = Folder_walkVU
+        self.Name_animationWO = Folder_walkO
+        self.Name_animationAngry = Folder_angry
+        
+        self.luce_image = pygame.image.load("../assets/luce.png").convert_alpha()
+        self.luce_image = pygame.transform.scale(self.luce_image, (self.width * 2, self.height * 2))
+        
+        self.character_update(3)
+        
+        self.char_w, self.char_h = self.image.get_width() * GLOB.MULT / GLOB.Player_proportion, self.image.get_height() * GLOB.MULT / GLOB.Player_proportion
 
 
     def setHitbox(self):
@@ -259,20 +280,82 @@ class Mostro():
     def __setBrain(self):
         lista_valori = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5]
         self.monster_ai_brain = random.choice(lista_valori)
+        
+    def character_update(self, c):
+        
+        self.current_spriteWO += 0.2 / GLOB.Delta_Time
+        self.current_spriteWVD += 0.2 / GLOB.Delta_Time
+        self.current_spriteWVU += 0.2 / GLOB.Delta_Time
 
-    def __setMonster(self, v):
-
-        if not v:
-            self.image = pygame.image.load("assets/mostro.png").convert_alpha()
-        else:
-            self.image = pygame.image.load("assets/angry-mostro.png").convert_alpha()
-
-        self.image = pygame.transform.scale(self.image, (self.image.get_width() * GLOB.MULT / GLOB.Player_proportion, self.image.get_height() * GLOB.MULT / GLOB.Player_proportion))
+        if c == 1:
+            if self.current_spriteWO >= len( GLOB.PlayerWalkingO):
+                self.current_spriteWO = 0
+            
+            immagine = GLOB.PlayerWalkingO[int(self.current_spriteWO)]
+            self.image = pygame.image.load(Folder_walkO + "/" + immagine).convert_alpha()
+    
+        if c == 2:
+            if self.current_spriteWO >= len(GLOB.PlayerWalkingO):
+                self.current_spriteWO = 0
+            
+            immagine = pygame.image.load(Folder_walkO + "/" + GLOB.PlayerWalkingO[int(self.current_spriteWO)]).convert_alpha()
+            immagine_flip = pygame.transform.flip(immagine, True, False)
+            self.image = immagine_flip
+            
+        if c == 3:
+            if self.current_spriteWVD >= len( GLOB.PlayerWalkingVD):
+                self.current_spriteWVD = 0
+            
+            immagine = GLOB.PlayerWalkingVD[int(self.current_spriteWVD)]
+            self.image = pygame.image.load(Folder_walkVD + "/" + immagine).convert_alpha()
+            
+        if c == 4:
+            if self.current_spriteWVU >= len( GLOB.PlayerWalkingVU):
+                self.current_spriteWVU = 0
+            
+            immagine = GLOB.PlayerWalkingVU[int(self.current_spriteWVU)]
+            self.image = pygame.image.load(Folder_walkVU + "/" + immagine).convert_alpha()
+            
+        if c == 5 and not self.flag_CanStartAttack:
+            
+            self.monster_ai_brain = -1
+            
+            self.current_spriteAngry += 0.2 / GLOB.Delta_Time
+            
+            if self.current_spriteAngry >= len(GLOB.MonsterAngry):
+                self.flag_CanStartAttack = True
+                self.current_spriteAngry = 0
+                
+            if self.current_spriteAngry >= 7:
+                cam.screen_shake()
+            
+            immagine = GLOB.MonsterAngry[int(self.current_spriteAngry)]
+            self.image = pygame.image.load(Folder_angry + "/" + immagine).convert_alpha()
+            
+            
+    def finish(self):
+        self.current_spriteAngry = 0
+        self.current_spriteWO = 0
+        self.current_spriteWVU = 0
+        self.current_spriteWVD = 0
+        self.character_update(3)
 
     def aggiorna(self):
         radius = 360
 
         self.setHitbox()
+        
+        if self.monster_ai_brain:
+            if self.monster_ai_brain == int(self.monster_ai_brain):
+                self.character_update(self.monster_ai_brain)
+            
+            elif self.monster_ai_brain == 1.5 or self.monster_ai_brain == 2.5:
+                self.character_update(3)
+                
+            elif self.monster_ai_brain == 3.5 or self.monster_ai_brain == 4.5:
+                self.character_update(4)
+        else:
+            self.finish()
 
         if not self.flag_CanAttack:
             self.aggr = False
@@ -303,25 +386,27 @@ class Mostro():
         # pygame.draw.line(GLOB.screen, (255,80,5), start_line, end_line1, 8)
 
         if (self.triangle.colliderect(player.hitbox) or self.aggr) and self.flag_CanAttack:
-            self.raggio_ai_brain = 0
-            self.monster_ai_brain = 0
-            self.height = 0
-            self.circle = pygame.draw.circle(self.superfice, "Red", (self.x + self.image.get_width()/2 + cam.getPositionX(), self.y + cam.getPositionY() + distanza[1]), self.valore_distanza, 0)
-            self.color_rect = (255, 0, 255)
-            self.color_triangle = (255, 0, 0)
-            self.__setMonster(True)
-            self.aggr = True
-            player.color = "White"
+            
+            self.character_update(5)
+            
+            if self.flag_CanStartAttack:
+                self.raggio_ai_brain = 0
+                self.monster_ai_brain = 0
+                self.height = 0
+                self.circle = pygame.draw.circle(self.superfice, "Red", (self.x + self.image.get_width()/2 + cam.getPositionX(), self.y + cam.getPositionY() + distanza[1]), self.valore_distanza, 0)
+                self.color_rect = (255, 0, 255)
+                self.color_triangle = (255, 0, 0)
+                self.aggr = True
+                player.color = "White"
 
         else:
             self.height = self.default_height
             self.delay_monster.Infinite()
-            self.__setMonster(False)
             self.color_triangle = (255, 0, 0)
             self.color_rect = (255, 0, 0)
             player.color = "Blue"
 
-
+        self.image = pygame.transform.scale(self.image, (self.char_w, self.char_h))
         GLOB.screen.blit(self.image, (self.x + cam.getPositionX(), self.y + cam.getPositionY()))
         GLOB.screen.blit(self.superfice, (0, 0))
 
@@ -409,26 +494,31 @@ class Mostro():
         
         if self.aggr and self.circle.colliderect(player.hitbox):
 
-            self.vel = self.default_speed * 1.2
+            self.vel = self.default_speed * 1.4
 
             if (player.Last_keyPressed == "Left" and player.Last_keyPressed != "Right") or self.hitbox[0] > player.x:
                 self.x -= self.vel
                 self.direzione = "sinistra"
+                self.monster_ai_brain = 2
 
             if (player.Last_keyPressed == "Right" and player.Last_keyPressed != "Left") or self.hitbox[0] + self.hitbox[2]/2 < player.x:
                 self.x += self.vel
                 self.direzione = "destra"
+                self.monster_ai_brain = 1
 
             if (player.Last_keyPressed == "Up" and player.Last_keyPressed != "Down") or self.hitbox[1] > player.y:
                 self.y -= self.vel
                 self.direzione = "alto"
+                self.monster_ai_brain = 4
 
             if (player.Last_keyPressed == "Down" and player.Last_keyPressed != "Up") or self.hitbox[1] + self.hitbox[3]/2 < player.y:
                 self.y += self.vel
                 self.direzione = "basso"
+                self.monster_ai_brain = 3
 
         else:
-
+            
+            self.flag_CanStartAttack = False
             self.aggr = False
 
 
@@ -444,15 +534,11 @@ class Mostro():
         if self.angle <= -1:
             self.angle = 359
 
-        print(self.direzione)
-
     def ruota_destra(self):
         self.angle += 1
-        print(self.angle)
 
     def ruota_sinistra(self):
         self.angle -= 0.25 * GLOB.MULT
-        print(self.angle)
 
     def aumenta_distanza(self):
         self.distanza += 0.25 * GLOB.MULT
@@ -519,6 +605,8 @@ class Mostro():
             
 
         if self.mesh.colliderect(object):   # Metodo di pygame che confronta se due rettangoli collidono
+            
+            self.finish()
 
             self.monster_ai_vel = 0.25
 
@@ -586,10 +674,46 @@ class Mostro():
 
 #Player Initialization
 def inizializza():
+    global Folder_walkO, Folder_walkVD, Folder_walkVU, Folder_angry
     global player, cam, console, mostro
+        
+    sceltaG = "Keeper"
+
+    Folder_walkO = '../animation/'+sceltaG+'/WalkOrizontal'
+    Folder_walkVD = '../animation/'+sceltaG+'/WalkVerticalD'
+    Folder_walkVU = '../animation/'+sceltaG+'/WalkVerticalU'
+    Folder_angry = '../animation/'+sceltaG+'/Angry'
+
+    def riempi(percorso):
+        FileNames = os.listdir(percorso)
+
+        # Ordino i file e gli appendo ad una lista, in modo che le animazioni siano lineari e ordinate
+        FileNames.sort(key=lambda f: int(re.sub('\D', '', f)))
+        sorted(FileNames)
+
+        for filename in FileNames:
+            if percorso == Folder_walkO:
+                #print("Trovato Percorso WO")
+                GLOB.PlayerWalkingO.append(filename)
+            if percorso == Folder_walkVD:
+                #print("Trovato Percorso WVD")
+                GLOB.PlayerWalkingVD.append(filename)
+            if percorso == Folder_walkVU:
+                #print("Trovato Percorso WVU")
+                GLOB.PlayerWalkingVU.append(filename)
+                
+            if percorso == Folder_angry:
+                GLOB.MonsterAngry.append(filename)
+
+    riempi(Folder_walkO)
+    riempi(Folder_walkVD)
+    riempi(Folder_walkVU)
+    riempi(Folder_angry)
+
+
     player = giocatore.Player(100 * GLOB.MULT, 90 * GLOB.MULT)
     cam = Cam()
-    mostro = Mostro((0 * GLOB.MULT, 0 * GLOB.MULT), 1.2 * GLOB.MULT / GLOB.Delta_Time, (20 * GLOB.MULT, 0.4 * GLOB.MULT))
+    mostro = Mostro((0 * GLOB.MULT, 0 * GLOB.MULT), 1.2, (20 * GLOB.MULT, 0.4 * GLOB.MULT))
     console = Debug()
 
 
