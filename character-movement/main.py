@@ -265,13 +265,18 @@ class Mostro():
         self.Name_animationWO = Folder_walkO
         self.Name_animationAngry = Folder_angry
         
-        self.luce_image = pygame.image.load("../assets/luce.png").convert_alpha()
-        self.luce_image = pygame.transform.scale(self.luce_image, (self.width * 2, self.height * 2))
-        
         self.character_update(3)
         
         self.char_w, self.char_h = self.image.get_width() * GLOB.MULT / GLOB.Player_proportion, self.image.get_height() * GLOB.MULT / GLOB.Player_proportion
 
+        self.luce_image = pygame.image.load("../assets/luce.png").convert_alpha()
+        self.luce_image = pygame.transform.scale(self.luce_image, (self.char_w, self.char_h))
+        
+        self.transparenza = 40
+
+        self.ICollide = False
+        
+        
 
     def setHitbox(self):
         self.hitbox = (self.x + 20 * GLOB.MULT + cam.getPositionX(),  self.y + 35 * GLOB.MULT + cam.getPositionY(), 16 * GLOB.MULT, 16 * GLOB.MULT)
@@ -378,8 +383,7 @@ class Mostro():
 
         self.triangle = pygame.draw.polygon(surface=self.superfice, color=self.color_triangle, points=[end_line, end_line1, start_line], width=0)
 
-        transparenza = 80
-        self.superfice.set_alpha(transparenza)
+        self.superfice.set_alpha(self.transparenza)
 
 
         # pygame.draw.line(GLOB.screen, (5,80,255), start_line, end_line, 8)
@@ -408,6 +412,10 @@ class Mostro():
 
         self.image = pygame.transform.scale(self.image, (self.char_w, self.char_h))
         GLOB.screen.blit(self.image, (self.x + cam.getPositionX(), self.y + cam.getPositionY()))
+
+        if self.aggr:
+            GLOB.screen.blit(self.luce_image, (self.x + cam.getPositionX(), self.y + cam.getPositionY()))
+
         GLOB.screen.blit(self.superfice, (0, 0))
 
             # pygame.draw.line(GLOB.screen, (5,80,255), start_line, end_line, 8)
@@ -492,7 +500,7 @@ class Mostro():
                 self.setUpPress(False)
 
         
-        if self.aggr and self.circle.colliderect(player.hitbox):
+        if self.aggr and self.circle.colliderect(player.hitbox) and not self.ICollide:
 
             self.vel = self.default_speed * 1.4
 
@@ -587,24 +595,26 @@ class Mostro():
 
             if value=="x":  # confronto il valore passato
 
-                if self.hitbox[0] >= object.x:  # confronto se la posizione del player delle x è maggiore o uguale della posizione delle x dell'oggetto di cui ho collisione
+                if self.mesh.right >= object.right:  # confronto se la posizione del player delle x è maggiore o uguale della posizione delle x dell'oggetto di cui ho collisione
                     self.x += self.vel   # ogni volta che collido vado a settare la posizione del player indietro grazie alla sua velocità
                     return True # ritorno un valore perchè dopo lo vado ad utilizzare
-                elif self.hitbox[2] <= object.x:
+                elif self.mesh.left <= object.left:
                     self.x -= self.vel    # ogni volta che collido vado a settare la posizione del player indietro grazie alla sua velocità
                     return False # ritorno un valore perchè dopo lo vado ad utilizzare
 
             if value=="y":  # confronto il valore passato
 
-                if self.hitbox[1] >= object.y:  # confronto se la posizione del player delle y è maggiore o uguale della posizione delle y dell'oggetto di cui ho collisione
+                if self.mesh.bottom >= object.bottom:  # confronto se la posizione del player delle y è maggiore o uguale della posizione delle y dell'oggetto di cui ho collisione
                     self.y += self.vel    # ogni volta che collido vado a settare la posizione del player indietro grazie alla sua velocità
                     return True # ritorno un valore perchè dopo lo vado ad utilizzare
-                elif self.hitbox[3] <= object.y:
+                elif self.mesh.top <= object.top:
                     self.y -= self.vel    # ogni volta che collido vado a settare la posizione del player indietro grazie alla sua velocità
                     return False # ritorno un valore perchè dopo lo vado ad utilizzare
             
 
         if self.mesh.colliderect(object):   # Metodo di pygame che confronta se due rettangoli collidono
+
+            self.ICollide = True
             
             self.finish()
 
@@ -641,8 +651,16 @@ class Mostro():
 
                     if Confronta("x"):  # se la funzione mi ritorna True allora:
                         self.setLeftPress(False)
+
+                        if self.aggr:
+                            self.setRightPress(True)
+                            self.monster_ai_brain = 1
                     else:  # se la funzione mi ritorna False allora:
                         self.setRightPress(False)
+
+                        if self.aggr:
+                            self.setLeftPress(True)
+                            self.monster_ai_brain = 2
 
                     self.Last_keyPressed = "Null"   # Variabile usata per non dare errori dato che l'ultimo pulsante cliccato sono l'insieme di due in contemporanea
 
@@ -653,9 +671,16 @@ class Mostro():
 
                     if Confronta("y"):  # se la funzione mi ritorna True allora:
                         self.setUpPress(False)
+             
+                        if self.aggr:
+                            self.setDownPress(True)
+                            self.monster_ai_brain = 3
                     else:  # se la funzione mi ritorna False allora:
                         self.setDownPress(False)
-
+             
+                        if self.aggr:
+                            self.setUpPress(True)
+                            self.monster_ai_brain = 4
                     self.Last_keyPressed = "Null"   # Variabile usata per non dare errori dato che l'ultimo pulsante cliccato sono l'insieme di due in contemporanea
                     
 
@@ -669,6 +694,7 @@ class Mostro():
                 Confronta("x")
                 #self.setAllkeys(None)
         else:
+            self.ICollide = False
             self.monster_ai_vel = self.default_monster_ai_vel
 
 
@@ -713,7 +739,7 @@ def inizializza():
 
     player = giocatore.Player(100 * GLOB.MULT, 90 * GLOB.MULT)
     cam = Cam()
-    mostro = Mostro((0 * GLOB.MULT, 0 * GLOB.MULT), 1.2, (20 * GLOB.MULT, 0.4 * GLOB.MULT))
+    mostro = Mostro((0 * GLOB.MULT, 0 * GLOB.MULT), 1.2, (20 * GLOB.MULT, 0.6 * GLOB.MULT))
     console = Debug()
 
 
